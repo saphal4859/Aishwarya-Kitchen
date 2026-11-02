@@ -1,0 +1,1839 @@
+<!DOCTYPE html>
+<html lang="en" class="scroll-smooth">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <title>Aishwarya's Kitchen | South Indian Macro & Meal Guide</title>
+  
+  <!-- Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&family=Playfair+Display:ital,wght@0,600;0,700;1,500&display=swap" rel="stylesheet">
+  
+  <!-- Tailwind CSS -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- Phosphor Icons -->
+  <script src="https://unpkg.com/@phosphor-icons/web"></script>
+  
+  <!-- Canvas Confetti for goal celebrations -->
+  <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.9.2/dist/confetti.browser.min.js"></script>
+
+  <!-- PapaParse for parsing the live Google Sheet CSV -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
+
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            spice: {
+              50: '#FDF8F5',
+              100: '#FBECE3',
+              200: '#F7D4C2',
+              300: '#F0B398',
+              400: '#E78C6B',
+              500: '#DD643D', // Warm Terracotta
+              600: '#C74A25',
+              700: '#A43719',
+              800: '#832D18',
+              900: '#6C2817',
+            },
+            saffron: {
+              DEFAULT: '#F59E0B',
+              soft: '#FEF3C7',
+              deep: '#D97706'
+            },
+            leaf: {
+              DEFAULT: '#15803D',
+              light: '#DCFCE7',
+              dark: '#166534'
+            },
+            warmbg: '#FAF7F2'
+          },
+          fontFamily: {
+            sans: ['"Plus Jakarta Sans"', 'sans-serif'],
+            serif: ['"Playfair Display"', 'serif'],
+          },
+          boxShadow: {
+            'soft': '0 8px 30px rgba(0, 0, 0, 0.05)',
+            'glow': '0 4px 20px -2px rgba(221, 100, 61, 0.25)',
+            'floating': '0 16px 40px -6px rgba(108, 40, 23, 0.2)'
+          }
+        }
+      }
+    }
+  </script>
+
+  <style>
+    /* Custom scrollbar */
+    ::-webkit-scrollbar {
+      width: 6px;
+      height: 6px;
+    }
+    ::-webkit-scrollbar-track {
+      background: #F5EFEB;
+    }
+    ::-webkit-scrollbar-thumb {
+      background: #D9A28E;
+      border-radius: 999px;
+    }
+    ::-webkit-scrollbar-thumb:hover {
+      background: #DD643D;
+    }
+    
+    .glass-nav {
+      background: rgba(253, 248, 245, 0.85);
+      backdrop-filter: blur(12px);
+      -webkit-backdrop-filter: blur(12px);
+    }
+
+    .glass-card {
+      background: rgba(255, 255, 255, 0.92);
+      backdrop-filter: blur(8px);
+    }
+
+    /* Range slider custom thumb */
+    input[type=range] {
+      -webkit-appearance: none;
+      height: 6px;
+      border-radius: 5px;
+      background: #E5DCD5;
+      outline: none;
+    }
+    input[type=range]::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      appearance: none;
+      width: 18px;
+      height: 18px;
+      border-radius: 50%;
+      background: #DD643D;
+      cursor: pointer;
+      box-shadow: 0 2px 6px rgba(221, 100, 61, 0.4);
+      transition: transform 0.15s ease;
+    }
+    input[type=range]::-webkit-slider-thumb:hover {
+      transform: scale(1.2);
+    }
+
+    @keyframes pulse-soft {
+      0%, 100% { transform: scale(1); }
+      50% { transform: scale(1.05); }
+    }
+    .animate-badge {
+      animation: pulse-soft 3s infinite;
+    }
+    .no-scrollbar::-webkit-scrollbar {
+      display: none;
+    }
+    .no-scrollbar {
+      -ms-overflow-style: none;
+      scrollbar-width: none;
+    }
+  </style>
+</head>
+<body class="bg-warmbg text-stone-800 antialiased font-sans min-h-screen flex flex-col selection:bg-spice-200 selection:text-spice-900 pb-28 md:pb-16">
+
+  <!-- ================= TOP NAVIGATION ================= -->
+  <header class="sticky top-0 z-30 glass-nav border-b border-spice-100 transition-all">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-18 py-3.5 flex items-center justify-between">
+      
+      <!-- Logo & Subtitle -->
+      <div class="flex items-center gap-3">
+        <div class="w-11 h-11 rounded-2xl bg-gradient-to-tr from-spice-600 via-spice-500 to-saffron flex items-center justify-center text-white shadow-md shadow-spice-500/20">
+          <i class="ph-fill ph-cooking-pot text-2xl"></i>
+        </div>
+        <div>
+          <div class="flex items-center gap-2">
+            <h1 class="text-xl sm:text-2xl font-serif font-bold text-spice-900 tracking-tight">Aishwarya's Kitchen</h1>
+            <span class="text-xs bg-saffron-soft text-saffron-deep font-bold px-2 py-0.5 rounded-full border border-amber-300/60 hidden sm:inline-flex items-center gap-1">
+              <i class="ph-fill ph-sparkle text-[11px]"></i> South Indian Healthy Bites
+            </span>
+          </div>
+          <p class="text-[11px] sm:text-xs text-stone-500 font-medium flex items-center gap-1.5 mt-0.5">
+            <span class="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" id="sheet-status-dot"></span>
+            <span id="sheet-status-text">Connecting to Google Sheet...</span>
+          </p>
+        </div>
+      </div>
+
+      <!-- Quick Action / Today's Plate Trigger -->
+      <div class="flex items-center gap-2">
+        <!-- Manual Sync Button -->
+        <button onclick="fetchSheetData()" title="Sync Google Sheet" class="p-2 sm:px-3 sm:py-2 rounded-xl text-stone-600 hover:text-spice-600 hover:bg-spice-100/60 border border-transparent hover:border-spice-200 transition-all flex items-center gap-1.5 text-xs font-semibold">
+          <i class="ph-bold ph-arrows-clockwise text-base" id="sync-icon"></i>
+          <span class="hidden md:inline">Sync Sheet</span>
+        </button>
+
+        <button id="quick-target-btn" onclick="openTargetModal()" class="p-2 sm:px-3 sm:py-2 rounded-xl text-stone-600 hover:text-spice-600 hover:bg-spice-100/60 border border-transparent hover:border-spice-200 transition-all flex items-center gap-1.5 text-xs font-semibold">
+          <i class="ph-bold ph-gear text-base"></i>
+          <span class="hidden md:inline">Daily Targets</span>
+        </button>
+
+        <button onclick="togglePlannerDrawer()" class="relative bg-gradient-to-r from-spice-500 to-spice-600 hover:from-spice-600 hover:to-spice-700 text-white px-3.5 py-2 rounded-xl font-semibold text-xs sm:text-sm shadow-md shadow-spice-600/25 flex items-center gap-2 transition-all active:scale-95">
+          <i class="ph-fill ph-fork-knife text-base"></i>
+          <span>Today's Plate</span>
+          <span id="nav-plate-count" class="bg-white text-spice-700 rounded-full w-5 h-5 flex items-center justify-center text-[11px] font-extrabold shadow-sm">0</span>
+        </button>
+      </div>
+
+    </div>
+  </header>
+
+  <!-- ================= HERO MOTIVATIONAL BANNER ================= -->
+  <section class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-5 pb-2">
+    <div class="relative overflow-hidden rounded-3xl bg-gradient-to-br from-spice-900 via-stone-900 to-spice-800 text-white p-5 sm:p-8 shadow-xl">
+      <!-- Decorative background circles -->
+      <div class="absolute -right-12 -top-12 w-64 h-64 rounded-full bg-spice-500/15 blur-3xl pointer-events-none"></div>
+      <div class="absolute right-1/4 -bottom-10 w-48 h-48 rounded-full bg-saffron/15 blur-2xl pointer-events-none"></div>
+
+      <div class="relative z-10 flex flex-col md:flex-row md:items-center justify-between gap-5">
+        <div class="max-w-xl">
+          <div class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-white/10 backdrop-blur-md text-amber-200 text-xs font-semibold mb-2">
+            <i class="ph-fill ph-heart text-rose-400"></i> Made with love for daily healthy eating
+          </div>
+          <h2 class="text-2xl sm:text-3xl lg:text-4xl font-serif font-bold text-white tracking-tight">
+            What are we cooking today, <span class="text-spice-300 italic">Aishwarya?</span>
+          </h2>
+          <p class="text-stone-300 text-xs sm:text-sm mt-1.5 leading-relaxed font-normal">
+            Choose from authentic dosas, millet upmas, rich protein bowls & quick favorites. Tap <strong class="text-white font-semibold">+ Add to Plate</strong> to automatically balance your calories & protein for the day!
+          </p>
+        </div>
+
+        <!-- Live mini target display -->
+        <div class="flex items-center gap-3 bg-white/10 backdrop-blur-md border border-white/10 p-3.5 rounded-2xl">
+          <div class="text-center px-2">
+            <span class="block text-[10px] text-stone-300 uppercase tracking-wider font-semibold">Today's Calories</span>
+            <span id="hero-cal-display" class="text-lg sm:text-xl font-extrabold text-amber-300">0</span>
+            <span class="text-[10px] text-stone-400 font-medium">/ <span class="target-cal-lbl">1700</span> kcal</span>
+          </div>
+          <div class="h-8 w-[1px] bg-white/20"></div>
+          <div class="text-center px-2">
+            <span class="block text-[10px] text-stone-300 uppercase tracking-wider font-semibold">Total Protein</span>
+            <span id="hero-pro-display" class="text-lg sm:text-xl font-extrabold text-emerald-300">0g</span>
+            <span class="text-[10px] text-stone-400 font-medium">/ <span class="target-pro-lbl">55</span>g</span>
+          </div>
+          <div class="h-8 w-[1px] bg-white/20"></div>
+          <div class="text-center px-2">
+            <span class="block text-[10px] text-stone-300 uppercase tracking-wider font-semibold">Total Fiber</span>
+            <span id="hero-fib-display" class="text-lg sm:text-xl font-extrabold text-orange-200">0g</span>
+            <span class="text-[10px] text-stone-400 font-medium">/ <span class="target-fib-lbl">28</span>g</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ================= MAIN LAYOUT (FILTERS + DISH GRID) ================= -->
+  <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 flex-1">
+    <div class="lg:grid lg:grid-cols-12 lg:gap-8 items-start">
+
+      <!-- ================= SIDEBAR FILTERS (DESKTOP) ================= -->
+      <aside class="hidden lg:block lg:col-span-3 sticky top-24 bg-white/90 backdrop-blur rounded-3xl p-5 border border-spice-100 shadow-soft space-y-6">
+        
+        <div class="flex items-center justify-between pb-3 border-b border-stone-100">
+          <div class="flex items-center gap-2 text-stone-900 font-bold text-base">
+            <i class="ph-bold ph-faders text-spice-600 text-lg"></i>
+            <span>Filter Dishes</span>
+          </div>
+          <button onclick="resetFilters()" class="text-xs font-semibold text-spice-600 hover:text-spice-700 underline decoration-dotted">
+            Reset All
+          </button>
+        </div>
+
+        <!-- Search Bar -->
+        <div>
+          <label class="block text-xs font-bold text-stone-600 uppercase tracking-wider mb-2">Search Recipe</label>
+          <div class="relative">
+            <i class="ph ph-magnifying-glass absolute left-3.5 top-3 text-stone-400 text-base"></i>
+            <input type="text" id="desktop-search" oninput="handleSearch(this.value)" placeholder="e.g. Dosa, Quinoa, Paneer..." 
+              class="w-full pl-10 pr-3.5 py-2.5 rounded-xl border border-stone-200 bg-warmbg/60 text-xs sm:text-sm focus:outline-none focus:border-spice-500 focus:bg-white transition" />
+          </div>
+        </div>
+
+        <!-- Quick Tag Toggles -->
+        <div>
+          <label class="block text-xs font-bold text-stone-600 uppercase tracking-wider mb-2.5">Preferences & Focus</label>
+          <div class="space-y-2">
+            <label class="flex items-center justify-between p-2 rounded-xl hover:bg-spice-50/70 cursor-pointer text-xs font-medium text-stone-700 select-none">
+              <span class="flex items-center gap-2">
+                <i class="ph-fill ph-barbell text-spice-500 text-base"></i> High Protein (≥ 12g)
+              </span>
+              <input type="checkbox" id="chk-high-protein" onchange="applyFilters()" class="accent-spice-600 w-4 h-4 rounded">
+            </label>
+            <label class="flex items-center justify-between p-2 rounded-xl hover:bg-spice-50/70 cursor-pointer text-xs font-medium text-stone-700 select-none">
+              <span class="flex items-center gap-2">
+                <i class="ph-fill ph-plant text-leaf text-base"></i> Rich in Fiber (≥ 5g)
+              </span>
+              <input type="checkbox" id="chk-high-fiber" onchange="applyFilters()" class="accent-spice-600 w-4 h-4 rounded">
+            </label>
+            <label class="flex items-center justify-between p-2 rounded-xl hover:bg-spice-50/70 cursor-pointer text-xs font-medium text-stone-700 select-none">
+              <span class="flex items-center gap-2">
+                <i class="ph-fill ph-feather text-amber-500 text-base"></i> Light / Calorie Smart (&lt; 300 kcal)
+              </span>
+              <input type="checkbox" id="chk-low-cal" onchange="applyFilters()" class="accent-spice-600 w-4 h-4 rounded">
+            </label>
+            <label class="flex items-center justify-between p-2 rounded-xl hover:bg-spice-50/70 cursor-pointer text-xs font-medium text-stone-700 select-none">
+              <span class="flex items-center gap-2">
+                <i class="ph-fill ph-grains text-yellow-600 text-base"></i> Millets & Ancient Grains
+              </span>
+              <input type="checkbox" id="chk-millet" onchange="applyFilters()" class="accent-spice-600 w-4 h-4 rounded">
+            </label>
+          </div>
+        </div>
+
+        <!-- Range 1: Max Calories -->
+        <div>
+          <div class="flex items-center justify-between mb-1.5">
+            <span class="text-xs font-bold text-stone-600 uppercase tracking-wider">Max Calories</span>
+            <span class="text-xs font-extrabold text-spice-700 bg-spice-100 px-2 py-0.5 rounded-md" id="lbl-max-cal">650 kcal</span>
+          </div>
+          <input type="range" id="range-cal" min="150" max="650" step="10" value="650" oninput="updateRangeLabels(); applyFilters();" class="w-full">
+          <div class="flex justify-between text-[10px] text-stone-400 mt-1">
+            <span>150 kcal</span>
+            <span>400</span>
+            <span>650+ kcal</span>
+          </div>
+        </div>
+
+        <!-- Range 2: Min Protein -->
+        <div>
+          <div class="flex items-center justify-between mb-1.5">
+            <span class="text-xs font-bold text-stone-600 uppercase tracking-wider">Min Protein</span>
+            <span class="text-xs font-extrabold text-leaf bg-emerald-50 px-2 py-0.5 rounded-md" id="lbl-min-pro">0 g</span>
+          </div>
+          <input type="range" id="range-pro" min="0" max="25" step="1" value="0" oninput="updateRangeLabels(); applyFilters();" class="w-full">
+          <div class="flex justify-between text-[10px] text-stone-400 mt-1">
+            <span>0g (Any)</span>
+            <span>12g</span>
+            <span>25g+</span>
+          </div>
+        </div>
+
+        <!-- Range 3: Min Fiber -->
+        <div>
+          <div class="flex items-center justify-between mb-1.5">
+            <span class="text-xs font-bold text-stone-600 uppercase tracking-wider">Min Fiber</span>
+            <span class="text-xs font-extrabold text-amber-700 bg-amber-50 px-2 py-0.5 rounded-md" id="lbl-min-fib">0 g</span>
+          </div>
+          <input type="range" id="range-fib" min="0" max="10" step="1" value="0" oninput="updateRangeLabels(); applyFilters();" class="w-full">
+          <div class="flex justify-between text-[10px] text-stone-400 mt-1">
+            <span>0g</span>
+            <span>5g</span>
+            <span>10g+</span>
+          </div>
+        </div>
+
+        <!-- Quick Tips Card -->
+        <div class="p-3.5 rounded-2xl bg-gradient-to-br from-spice-50 to-amber-50/50 border border-spice-200/50">
+          <div class="flex items-center gap-1.5 text-xs font-bold text-spice-800 mb-1">
+            <i class="ph-fill ph-lightbulb text-amber-500"></i> Pro South Indian Tip
+          </div>
+          <p class="text-[11px] text-stone-600 leading-relaxed">
+            Pair Pesarattu or Dosa with sambar and an egg or paneer portion to quickly hit 20g+ clean protein!
+          </p>
+        </div>
+
+      </aside>
+
+      <!-- ================= CONTENT AREA ================= -->
+      <section class="lg:col-span-9 space-y-5">
+        
+        <!-- Controls bar: Search (mobile), Category Pills, Sorting -->
+        <div class="bg-white/90 backdrop-blur rounded-2xl p-3 sm:p-4 border border-spice-100 shadow-soft space-y-3">
+          
+          <!-- Mobile search & Filter Trigger -->
+          <div class="flex items-center gap-2 lg:hidden">
+            <div class="relative flex-1">
+              <i class="ph ph-magnifying-glass absolute left-3 top-3 text-stone-400 text-base"></i>
+              <input type="text" id="mobile-search" oninput="handleSearch(this.value)" placeholder="Search dosas, rice, millets..." 
+                class="w-full pl-9 pr-3 py-2 rounded-xl border border-stone-200 bg-warmbg text-xs sm:text-sm focus:outline-none focus:border-spice-500" />
+            </div>
+            <button onclick="openMobileFilters()" class="px-3 py-2 bg-spice-100 text-spice-800 rounded-xl font-bold text-xs flex items-center gap-1.5">
+              <i class="ph-bold ph-sliders-horizontal text-sm"></i>
+              <span>Filters</span>
+              <span id="mobile-filter-badge" class="hidden w-2 h-2 rounded-full bg-spice-600"></span>
+            </button>
+          </div>
+
+          <!-- Category Filter Pills & Sort Selector -->
+          <div class="flex flex-wrap items-center justify-between gap-2.5">
+            <!-- Scrollable Pill Category List -->
+            <div class="flex items-center gap-1.5 overflow-x-auto pb-1 max-w-full no-scrollbar">
+              <button onclick="setCategory('all')" data-cat="all" class="category-pill active-pill whitespace-nowrap px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all bg-spice-600 text-white shadow-sm">
+                All Recipes (<span id="total-count-pill">24</span>)
+              </button>
+              <button onclick="setCategory('breakfast')" data-cat="breakfast" class="category-pill whitespace-nowrap px-3.5 py-1.5 rounded-xl text-xs font-semibold text-stone-600 hover:text-stone-900 bg-stone-100 hover:bg-stone-200/80 transition-all">
+                🥞 Breakfast Classics
+              </button>
+              <button onclick="setCategory('rice')" data-cat="rice" class="category-pill whitespace-nowrap px-3.5 py-1.5 rounded-xl text-xs font-semibold text-stone-600 hover:text-stone-900 bg-stone-100 hover:bg-stone-200/80 transition-all">
+                🍚 Flavored Rice & Pulav
+              </button>
+              <button onclick="setCategory('millets')" data-cat="millets" class="category-pill whitespace-nowrap px-3.5 py-1.5 rounded-xl text-xs font-semibold text-stone-600 hover:text-stone-900 bg-stone-100 hover:bg-stone-200/80 transition-all">
+                🌾 Millets & Light
+              </button>
+              <button onclick="setCategory('protein')" data-cat="protein" class="category-pill whitespace-nowrap px-3.5 py-1.5 rounded-xl text-xs font-semibold text-stone-600 hover:text-stone-900 bg-stone-100 hover:bg-stone-200/80 transition-all">
+                💪 High Protein Picks
+              </button>
+            </div>
+
+            <!-- Sort By Select -->
+            <div class="flex items-center gap-2 ml-auto">
+              <span class="text-xs text-stone-400 font-medium hidden sm:inline">Sort:</span>
+              <select id="sort-select" onchange="applyFilters()" class="text-xs font-semibold text-stone-700 bg-warmbg border border-stone-200 rounded-xl px-2.5 py-1.5 focus:outline-none focus:border-spice-500">
+                <option value="recommended">✨ Recommended</option>
+                <option value="protein-desc">Protein: High to Low</option>
+                <option value="cal-asc">Calories: Low to High</option>
+                <option value="cal-desc">Calories: High to Low</option>
+                <option value="fiber-desc">Fiber: High to Low</option>
+                <option value="name-asc">Name: A to Z</option>
+              </select>
+            </div>
+          </div>
+
+        </div>
+
+        <!-- Dishes Grid Count Header -->
+        <div class="flex items-center justify-between text-xs text-stone-500 px-1 font-medium">
+          <span id="results-count-text">Showing 24 delicious options</span>
+          <span class="text-[11px] text-spice-700 bg-spice-100/70 px-2 py-0.5 rounded-full font-semibold">
+            All portions calibrated with realistic serving sizes
+          </span>
+        </div>
+
+        <!-- Recipe Cards Grid -->
+        <div id="recipe-grid" class="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-5">
+          <!-- Populated by JavaScript -->
+        </div>
+
+        <!-- No Results Fallback -->
+        <div id="no-results" class="hidden py-16 text-center bg-white rounded-3xl border border-dashed border-stone-300 p-8">
+          <div class="w-16 h-16 mx-auto mb-3 rounded-full bg-spice-100 text-spice-600 flex items-center justify-center text-3xl">
+            <i class="ph ph-magnifying-glass"></i>
+          </div>
+          <h3 class="text-lg font-serif font-bold text-stone-800">No dishes match these filters</h3>
+          <p class="text-xs text-stone-500 mt-1 max-w-sm mx-auto">Try relaxing your calorie limits or resetting the filters to view all South Indian favorites.</p>
+          <button onclick="resetFilters()" class="mt-4 px-4 py-2 bg-spice-600 text-white rounded-xl text-xs font-bold hover:bg-spice-700 transition">
+            Reset Filters
+          </button>
+        </div>
+
+      </section>
+
+    </div>
+  </main>
+
+  <!-- ================= FLOATING STICKY BOTTOM BAR (MOBILE/DESKTOP) ================= -->
+  <div id="floating-bar" class="fixed bottom-3 inset-x-3 sm:inset-x-auto sm:right-6 sm:w-96 z-40 bg-stone-900/95 backdrop-blur-md text-white rounded-2xl p-3.5 shadow-floating border border-white/10 flex items-center justify-between transition-all transform duration-300 translate-y-0">
+    <div class="flex items-center gap-3">
+      <div class="w-10 h-10 rounded-xl bg-spice-500 text-white flex items-center justify-center text-xl font-bold shadow-sm">
+        <i class="ph-fill ph-bowl-food"></i>
+      </div>
+      <div>
+        <div class="flex items-center gap-1.5">
+          <span class="text-xs font-bold text-white tracking-wide">Daily Plate</span>
+          <span id="floating-dish-count" class="text-[10px] bg-white/20 text-stone-200 px-1.5 py-0.2 rounded font-mono">0 items</span>
+        </div>
+        <div class="text-[11px] text-stone-300 font-medium">
+          <span id="floating-cals" class="font-extrabold text-amber-300">0</span> kcal · 
+          <span id="floating-pro" class="font-extrabold text-emerald-300">0g</span> protein
+        </div>
+      </div>
+    </div>
+
+    <button onclick="togglePlannerDrawer()" class="bg-gradient-to-r from-spice-500 to-spice-600 hover:from-spice-600 hover:to-spice-700 text-white px-3.5 py-2 rounded-xl text-xs font-bold flex items-center gap-1.5 transition active:scale-95 shadow">
+      <span>View Plate</span>
+      <i class="ph-bold ph-caret-up text-sm"></i>
+    </button>
+  </div>
+
+  <!-- ================= DAILY PLANNER SLIDE-OVER DRAWER ================= -->
+  <div id="drawer-backdrop" onclick="togglePlannerDrawer()" class="fixed inset-0 bg-stone-950/60 backdrop-blur-sm z-50 opacity-0 pointer-events-none transition-opacity duration-300"></div>
+  
+  <div id="planner-drawer" class="fixed inset-y-0 right-0 max-w-md w-full bg-warmbg z-50 shadow-2xl flex flex-col transform translate-x-full transition-transform duration-300 ease-in-out border-l border-stone-200">
+    
+    <!-- Drawer Header -->
+    <div class="p-4 sm:p-5 bg-white border-b border-stone-200 flex items-center justify-between">
+      <div class="flex items-center gap-2.5">
+        <div class="w-9 h-9 rounded-xl bg-spice-100 text-spice-600 flex items-center justify-center">
+          <i class="ph-fill ph-calendar-check text-xl"></i>
+        </div>
+        <div>
+          <h3 class="font-serif font-bold text-lg text-stone-900 leading-tight">Today's Meal Plate</h3>
+          <p class="text-[11px] text-stone-500 font-medium">Adjust portions, mix & match your day's calories</p>
+        </div>
+      </div>
+      <button onclick="togglePlannerDrawer()" class="w-8 h-8 rounded-full bg-stone-100 hover:bg-stone-200 text-stone-600 flex items-center justify-center transition">
+        <i class="ph-bold ph-x text-base"></i>
+      </button>
+    </div>
+
+    <!-- Macro Summary Cards with Progress Bars -->
+    <div class="p-4 bg-white/60 border-b border-stone-200 space-y-3">
+      <div class="flex items-center justify-between text-xs font-semibold text-stone-600">
+        <span>Daily Nutrition Progress</span>
+        <button onclick="openTargetModal()" class="text-spice-600 text-[11px] hover:underline flex items-center gap-1 font-bold">
+          <i class="ph ph-pencil-simple"></i> Edit Goals
+        </button>
+      </div>
+
+      <!-- Macros Grid -->
+      <div class="grid grid-cols-4 gap-2">
+        <!-- Calories -->
+        <div class="bg-amber-50/80 border border-amber-200/60 p-2.5 rounded-xl text-center">
+          <span class="block text-[10px] text-amber-800 font-bold uppercase tracking-wider">Calories</span>
+          <span id="drawer-total-cal" class="text-base font-extrabold text-amber-900">0</span>
+          <span class="block text-[9px] text-amber-700/80">/ <span class="target-cal-lbl">1700</span></span>
+        </div>
+        <!-- Protein -->
+        <div class="bg-emerald-50/80 border border-emerald-200/60 p-2.5 rounded-xl text-center">
+          <span class="block text-[10px] text-emerald-800 font-bold uppercase tracking-wider">Protein</span>
+          <span id="drawer-total-pro" class="text-base font-extrabold text-emerald-900">0g</span>
+          <span class="block text-[9px] text-emerald-700/80">/ <span class="target-pro-lbl">55</span>g</span>
+        </div>
+        <!-- Fiber -->
+        <div class="bg-orange-50/80 border border-orange-200/60 p-2.5 rounded-xl text-center">
+          <span class="block text-[10px] text-orange-800 font-bold uppercase tracking-wider">Fiber</span>
+          <span id="drawer-total-fib" class="text-base font-extrabold text-orange-900">0g</span>
+          <span class="block text-[9px] text-orange-700/80">/ <span class="target-fib-lbl">28</span>g</span>
+        </div>
+        <!-- Carbs -->
+        <div class="bg-stone-100 border border-stone-200 p-2.5 rounded-xl text-center">
+          <span class="block text-[10px] text-stone-700 font-bold uppercase tracking-wider">Carbs</span>
+          <span id="drawer-total-carb" class="text-base font-extrabold text-stone-900">0g</span>
+          <span class="block text-[9px] text-stone-500">Fat: <span id="drawer-total-fat">0g</span></span>
+        </div>
+      </div>
+
+      <!-- Animated Progress Bar (Calories & Protein) -->
+      <div class="space-y-1.5 pt-1">
+        <div>
+          <div class="flex justify-between text-[10px] font-semibold text-stone-600 mb-0.5">
+            <span>Calorie Budget</span>
+            <span id="cal-percent-lbl">0%</span>
+          </div>
+          <div class="w-full bg-stone-200 h-2 rounded-full overflow-hidden">
+            <div id="cal-progress-bar" class="bg-gradient-to-r from-amber-400 to-spice-500 h-full rounded-full transition-all duration-500" style="width: 0%"></div>
+          </div>
+        </div>
+        <div>
+          <div class="flex justify-between text-[10px] font-semibold text-stone-600 mb-0.5">
+            <span>Protein Target</span>
+            <span id="pro-percent-lbl">0%</span>
+          </div>
+          <div class="w-full bg-stone-200 h-2 rounded-full overflow-hidden">
+            <div id="pro-progress-bar" class="bg-gradient-to-r from-emerald-400 to-leaf h-full rounded-full transition-all duration-500" style="width: 0%"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Selected Meals Scrollable List -->
+    <div id="drawer-items-list" class="flex-1 overflow-y-auto p-4 space-y-3">
+      <!-- Injected by JS -->
+    </div>
+
+    <!-- Empty State in Drawer -->
+    <div id="drawer-empty-state" class="flex-1 flex flex-col items-center justify-center p-6 text-center">
+      <div class="w-16 h-16 rounded-2xl bg-spice-100/60 text-spice-600 flex items-center justify-center text-3xl mb-3">
+        <i class="ph ph-cooking-pot"></i>
+      </div>
+      <h4 class="font-serif font-bold text-stone-800 text-base">Your plate is currently empty</h4>
+      <p class="text-xs text-stone-500 mt-1 max-w-xs">
+        Browse any dish on the menu and tap <strong>"+ Add to Plate"</strong>. You can customize portions and time slots!
+      </p>
+    </div>
+
+    <!-- Drawer Footer Actions -->
+    <div class="p-4 bg-white border-t border-stone-200 space-y-2">
+      <div class="flex gap-2">
+        <button onclick="copyDayMenu()" class="flex-1 py-2.5 px-3 bg-stone-100 hover:bg-stone-200 text-stone-800 rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 transition active:scale-95">
+          <i class="ph-bold ph-copy"></i>
+          <span>Share WhatsApp Menu</span>
+        </button>
+        <button onclick="clearPlate()" class="py-2.5 px-3 bg-rose-50 hover:bg-rose-100 text-rose-700 rounded-xl text-xs font-bold transition active:scale-95" title="Clear All">
+          <i class="ph-bold ph-trash"></i>
+        </button>
+      </div>
+      <button onclick="togglePlannerDrawer()" class="w-full py-2.5 bg-spice-600 hover:bg-spice-700 text-white rounded-xl text-xs font-bold shadow-md shadow-spice-600/20 transition">
+        Continue Choosing Dishes
+      </button>
+    </div>
+
+  </div>
+
+  <!-- ================= MOBILE FILTER MODAL / BOTTOM SHEET ================= -->
+  <div id="mobile-filter-modal" class="fixed inset-0 z-50 bg-stone-950/60 backdrop-blur-sm hidden flex-col justify-end">
+    <div class="bg-white rounded-t-3xl max-h-[85vh] overflow-y-auto p-5 space-y-5 animate-in slide-in-from-bottom duration-300">
+      
+      <div class="flex items-center justify-between pb-3 border-b border-stone-100">
+        <div class="flex items-center gap-2">
+          <i class="ph-bold ph-faders text-spice-600 text-lg"></i>
+          <h3 class="font-serif font-bold text-lg text-stone-900">Filters & Macros</h3>
+        </div>
+        <button onclick="closeMobileFilters()" class="w-8 h-8 rounded-full bg-stone-100 flex items-center justify-center text-stone-600">
+          <i class="ph-bold ph-x"></i>
+        </button>
+      </div>
+
+      <!-- Quick Toggles -->
+      <div class="space-y-2.5">
+        <label class="flex items-center justify-between p-2.5 rounded-xl bg-warmbg text-xs font-semibold text-stone-800">
+          <span>💪 High Protein (≥ 12g)</span>
+          <input type="checkbox" id="m-chk-high-protein" onchange="syncAndApplyMobileFilters()" class="accent-spice-600 w-4 h-4">
+        </label>
+        <label class="flex items-center justify-between p-2.5 rounded-xl bg-warmbg text-xs font-semibold text-stone-800">
+          <span>🌿 High Fiber (≥ 5g)</span>
+          <input type="checkbox" id="m-chk-high-fiber" onchange="syncAndApplyMobileFilters()" class="accent-spice-600 w-4 h-4">
+        </label>
+        <label class="flex items-center justify-between p-2.5 rounded-xl bg-warmbg text-xs font-semibold text-stone-800">
+          <span>🪶 Low Calorie (&lt; 300 kcal)</span>
+          <input type="checkbox" id="m-chk-low-cal" onchange="syncAndApplyMobileFilters()" class="accent-spice-600 w-4 h-4">
+        </label>
+        <label class="flex items-center justify-between p-2.5 rounded-xl bg-warmbg text-xs font-semibold text-stone-800">
+          <span>🌾 Millets / Quinoa</span>
+          <input type="checkbox" id="m-chk-millet" onchange="syncAndApplyMobileFilters()" class="accent-spice-600 w-4 h-4">
+        </label>
+      </div>
+
+      <!-- Sliders Mobile -->
+      <div class="space-y-4 pt-2">
+        <div>
+          <div class="flex justify-between text-xs font-bold mb-1">
+            <span class="text-stone-600">Max Calories</span>
+            <span id="m-lbl-max-cal" class="text-spice-700 font-extrabold">650 kcal</span>
+          </div>
+          <input type="range" id="m-range-cal" min="150" max="650" step="10" value="650" oninput="syncRangeMobile();" class="w-full">
+        </div>
+        <div>
+          <div class="flex justify-between text-xs font-bold mb-1">
+            <span class="text-stone-600">Min Protein</span>
+            <span id="m-lbl-min-pro" class="text-leaf font-extrabold">0 g</span>
+          </div>
+          <input type="range" id="m-range-pro" min="0" max="25" step="1" value="0" oninput="syncRangeMobile();" class="w-full">
+        </div>
+      </div>
+
+      <div class="flex gap-2 pt-2">
+        <button onclick="resetFilters(); closeMobileFilters();" class="w-1/3 py-2.5 border border-stone-200 text-stone-700 rounded-xl text-xs font-bold">
+          Reset
+        </button>
+        <button onclick="closeMobileFilters()" class="w-2/3 py-2.5 bg-spice-600 text-white rounded-xl text-xs font-bold shadow-md">
+          Apply Filters
+        </button>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- ================= TARGET SETTINGS MODAL ================= -->
+  <div id="target-modal" class="fixed inset-0 z-50 bg-stone-950/60 backdrop-blur-sm hidden items-center justify-center p-4">
+    <div class="bg-white rounded-3xl max-w-sm w-full p-5 space-y-4 shadow-2xl border border-stone-100 animate-in zoom-in-95 duration-200">
+      
+      <div class="flex items-center justify-between pb-2 border-b border-stone-100">
+        <div>
+          <h3 class="font-serif font-bold text-lg text-stone-900">Daily Target Goals</h3>
+          <p class="text-[11px] text-stone-500">Personalize Aishwarya's macro goals</p>
+        </div>
+        <button onclick="closeTargetModal()" class="w-8 h-8 rounded-full bg-stone-100 flex items-center justify-center text-stone-600">
+          <i class="ph-bold ph-x"></i>
+        </button>
+      </div>
+
+      <div class="space-y-3">
+        <div>
+          <label class="block text-xs font-bold text-stone-700 mb-1">Daily Calories Goal (kcal)</label>
+          <input type="number" id="inp-target-cal" value="1700" step="50" class="w-full p-2.5 text-xs font-bold rounded-xl border border-stone-200 bg-warmbg focus:border-spice-500">
+        </div>
+        <div>
+          <label class="block text-xs font-bold text-stone-700 mb-1">Daily Protein Goal (grams)</label>
+          <input type="number" id="inp-target-pro" value="55" step="5" class="w-full p-2.5 text-xs font-bold rounded-xl border border-stone-200 bg-warmbg focus:border-spice-500">
+        </div>
+        <div>
+          <label class="block text-xs font-bold text-stone-700 mb-1">Daily Fiber Goal (grams)</label>
+          <input type="number" id="inp-target-fib" value="28" step="2" class="w-full p-2.5 text-xs font-bold rounded-xl border border-stone-200 bg-warmbg focus:border-spice-500">
+        </div>
+      </div>
+
+      <button onclick="saveDailyTargets()" class="w-full py-2.5 bg-spice-600 hover:bg-spice-700 text-white rounded-xl text-xs font-bold shadow-md transition">
+        Save & Update Goals
+      </button>
+
+    </div>
+  </div>
+
+  <!-- ================= TOAST NOTIFICATION ================= -->
+  <div id="toast" class="fixed top-20 right-4 sm:right-8 z-50 transform -translate-y-12 opacity-0 pointer-events-none transition-all duration-300 bg-stone-900 text-white px-4 py-2.5 rounded-2xl shadow-floating flex items-center gap-2.5 text-xs font-semibold border border-white/10">
+    <i id="toast-icon" class="ph-fill ph-check-circle text-emerald-400 text-base"></i>
+    <span id="toast-msg">Added to your plate!</span>
+  </div>
+
+  <!-- ================= SCRIPTS & APPLICATION DATA ================= -->
+  <script>
+    // Live Google Sheet CSV URL
+    const SHEET_CSV_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vS8ddjUInZZVCew2ANqtxn8LwmroTskfJmJWdx-lDYMUm3NsKt1gTns1I3qR3U-GfFxxWE0VhwaXEoD/pub?output=csv";
+
+    // Verified Default South Indian Dishes (used as instant fallback if offline/loading)
+    const DEFAULT_DISHES = [
+      {
+        id: "dosa",
+        name: "Crispy Dosa",
+        kannada: "ದೋಸೆ / Dosa",
+        portion: "2 medium dosas",
+        grams: "160g",
+        calories: 320,
+        protein: 7.2,
+        carbs: 58.0,
+        fiber: 3.4,
+        fat: 6.8,
+        category: "breakfast",
+        tags: ["South Indian Classic", "Breakfast"],
+        image: "images/dosa.jpg",
+        description: "Golden fermented rice-urad dal crepes made with minimal ghee or cold-pressed oil."
+      },
+      {
+        id: "idly",
+        name: "Soft Steamed Idly",
+        kannada: "ಇಡ್ಲಿ / Idli with Sambar",
+        portion: "3 idlis with sambar",
+        grams: "220g",
+        calories: 230,
+        protein: 8.5,
+        carbs: 46.0,
+        fiber: 4.8,
+        fat: 1.5,
+        category: "breakfast",
+        tags: ["Low Fat", "High Fiber", "Breakfast"],
+        image: "images/idly.jpg",
+        description: "Naturally fermented, gut-friendly steamed cakes packed with clean plant carbs and lentils."
+      },
+      {
+        id: "upma",
+        name: "Rava Upma",
+        kannada: "ಉಪ್ಮಾ / Kharabath",
+        portion: "1 medium bowl",
+        grams: "200g",
+        calories: 275,
+        protein: 6.0,
+        carbs: 45.0,
+        fiber: 3.2,
+        fat: 8.0,
+        category: "breakfast",
+        tags: ["Quick & Light", "Breakfast"],
+        image: "images/upma.jpg",
+        description: "Roasted suji tempered with mustard seeds, green chillies, curry leaves, and crunchy cashews."
+      },
+      {
+        id: "millet-upma",
+        name: "Foxtail Millet Upma",
+        kannada: "ನವಣೆ ಉಪ್ಮಾ / Millet Upma",
+        portion: "1 bowl",
+        grams: "200g",
+        calories: 240,
+        protein: 8.2,
+        carbs: 39.0,
+        fiber: 7.5,
+        fat: 5.5,
+        category: "millets",
+        tags: ["High Fiber", "Millet", "Low GI"],
+        image: "images/millet_upma.jpg",
+        description: "Slow-digesting ancient grain cooked with garden veggies, curry leaves, and aromatic ginger."
+      },
+      {
+        id: "ven-pongal",
+        name: "Ghee Ven Pongal",
+        kannada: "ಖಾರ ಪೊಂಗಲ್ / Pongal",
+        portion: "1 cup / bowl",
+        grams: "200g",
+        calories: 340,
+        protein: 8.8,
+        carbs: 52.0,
+        fiber: 4.0,
+        fat: 11.5,
+        category: "breakfast",
+        tags: ["Comfort Food", "Wholesome"],
+        image: "images/pongal.jpg",
+        description: "Soothing rice and yellow moong dal cooked with black peppercorns, cumin, ginger, and desi ghee."
+      },
+      {
+        id: "quinoa-pongal",
+        name: "Healthy Quinoa Pongal",
+        kannada: "ಕ್ವಿನೋವಾ ಪೊಂಗಲ್",
+        portion: "1 cup / bowl",
+        grams: "200g",
+        calories: 270,
+        protein: 12.5,
+        carbs: 40.0,
+        fiber: 6.8,
+        fat: 6.0,
+        category: "millets",
+        tags: ["High Protein", "High Fiber", "Millet"],
+        image: "images/quinoa_pongal.jpg",
+        description: "Complete amino acid profile pairing white quinoa with moong dal, ginger, and roasted cumin."
+      },
+      {
+        id: "bisi-bele-bath",
+        name: "Karnataka Bisi Bele Bath",
+        kannada: "ಬಿಸಿ ಬೇಳೆ ಬಾತ್",
+        portion: "1 full bowl",
+        grams: "250g",
+        calories: 360,
+        protein: 11.0,
+        carbs: 62.0,
+        fiber: 6.5,
+        fat: 8.0,
+        category: "rice",
+        tags: ["Nutrient Dense", "Rice Bowls"],
+        image: "images/bisibelebath.jpg",
+        description: "Rich medley of toor dal, rice, mixed vegetables, tamarind, and aromatic home-ground masala."
+      },
+      {
+        id: "egg-rice",
+        name: "South Indian Egg Fried Rice",
+        kannada: "ಮೊಟ್ಟೆ ಅನ್ನ / Egg Rice",
+        portion: "1 plate (2 eggs)",
+        grams: "250g",
+        calories: 410,
+        protein: 18.0,
+        carbs: 51.0,
+        fiber: 3.2,
+        fat: 14.0,
+        category: "protein",
+        tags: ["High Protein", "Rice Bowls"],
+        image: "images/egg_rice.jpg",
+        description: "Steamed rice wok-tossed with 2 farm eggs, onions, green chillies, curry leaves, and black pepper."
+      },
+      {
+        id: "tomato-rice",
+        name: "Thakkali Sadam (Tomato Rice)",
+        kannada: "ಟೊಮೆಟೊ ಬಾತ್ / Tomato Rice",
+        portion: "1 full plate",
+        grams: "250g",
+        calories: 320,
+        protein: 5.5,
+        carbs: 56.0,
+        fiber: 4.2,
+        fat: 8.5,
+        category: "rice",
+        tags: ["Tangy & Fresh", "Rice Bowls"],
+        image: "images/tomato_rice.jpg",
+        description: "Ripe country tomatoes cooked with whole spices, crunchy peanuts, and fresh coriander."
+      },
+      {
+        id: "potato-rice",
+        name: "Aloo Sadam (Potato Rice)",
+        kannada: "ಆಲೂ ರೈಸ್ / Potato Sadam",
+        portion: "1 full plate",
+        grams: "250g",
+        calories: 350,
+        protein: 5.8,
+        carbs: 64.0,
+        fiber: 4.0,
+        fat: 8.0,
+        category: "rice",
+        tags: ["Comforting", "Rice Bowls"],
+        image: "images/potato_rice.jpg",
+        description: "Soft potato cubes spiced with cumin, turmeric, mild chili, and fresh curry leaves."
+      },
+      {
+        id: "garlic-rice",
+        name: "Poondu Sadam (Garlic Rice)",
+        kannada: "ಬೆಳ್ಳುಳ್ಳಿ ಅನ್ನ / Garlic Rice",
+        portion: "1 plate",
+        grams: "200g",
+        calories: 310,
+        protein: 6.2,
+        carbs: 54.0,
+        fiber: 3.5,
+        fat: 8.0,
+        category: "rice",
+        tags: ["Immunity Boosting", "Rice Bowls"],
+        image: "images/garlic_rice.jpg",
+        description: "Golden roasted country garlic cloves tossed with pepper, mustard, and fragrant ghee."
+      },
+      {
+        id: "puliyogare",
+        name: "Temple Style Puliyogare",
+        kannada: "ಹುಳಿಯನ್ನ / Puliyogare",
+        portion: "1 plate",
+        grams: "200g",
+        calories: 360,
+        protein: 6.5,
+        carbs: 59.0,
+        fiber: 4.8,
+        fat: 11.0,
+        category: "rice",
+        tags: ["Temple Taste", "Rice Bowls"],
+        image: "images/puliyogare.jpg",
+        description: "Tamarind paste cooked with jaggery, sesame seeds, peanuts, and roasted dry red chillies."
+      },
+      {
+        id: "lemon-rice",
+        name: "Chitranna (Lemon Rice)",
+        kannada: "ಚಿತ್ರಾನ್ನ / Lemon Rice",
+        portion: "1 plate",
+        grams: "200g",
+        calories: 315,
+        protein: 5.2,
+        carbs: 52.0,
+        fiber: 3.1,
+        fat: 9.5,
+        category: "rice",
+        tags: ["Zesty", "Quick & Light"],
+        image: "images/lemon_rice.jpg",
+        description: "Turmeric rice infused with fresh squeezed lemon juice, green chilies, and crunchy roasted groundnuts."
+      },
+      {
+        id: "paneer-fried-rice",
+        name: "Paneer Tava Pulav",
+        kannada: "ಪನೀರ್ ಫ್ರೈಡ್ ರೈಸ್",
+        portion: "1 plate (80g paneer)",
+        grams: "250g",
+        calories: 440,
+        protein: 19.5,
+        carbs: 48.0,
+        fiber: 4.5,
+        fat: 18.0,
+        category: "protein",
+        tags: ["High Protein", "Rice Bowls"],
+        image: "images/paneer_rice.jpg",
+        description: "Fresh diced cottage cheese grilled with bell peppers, onions, and mildly spiced basmati rice."
+      },
+      {
+        id: "soya-rice",
+        name: "Soya Chunks Pulav",
+        kannada: "ಸೋಯಾ ಪುಲಾವ್ / Meal Maker",
+        portion: "1 large plate",
+        grams: "250g",
+        calories: 380,
+        protein: 21.0,
+        carbs: 55.0,
+        fiber: 7.2,
+        fat: 7.5,
+        category: "protein",
+        tags: ["High Protein", "High Fiber"],
+        image: "images/soya_rice.jpg",
+        description: "Powerhouse protein meal maker chunks pressure-cooked with mint, coriander, and spices."
+      },
+      {
+        id: "veg-pulao",
+        name: "Garden Vegetable Pulao",
+        kannada: "ತರಕಾರಿ ಪುಲಾವ್ / Veg Pulao",
+        portion: "1 full plate",
+        grams: "250g",
+        calories: 330,
+        protein: 7.5,
+        carbs: 58.0,
+        fiber: 6.0,
+        fat: 7.8,
+        category: "rice",
+        tags: ["Wholesome", "Rice Bowls"],
+        image: "images/veg_pulao.jpg",
+        description: "Fragrant basmati cooked with carrots, green peas, beans, cardamom, and fresh mint leaves."
+      },
+      {
+        id: "pesarattu",
+        name: "Andhra Moong Dal Pesarattu",
+        kannada: "ಹೆಸರುಕಾಳು ದೋಸೆ / Pesarattu",
+        portion: "2 dosas with ginger chutney",
+        grams: "180g",
+        calories: 290,
+        protein: 15.2,
+        carbs: 44.0,
+        fiber: 8.5,
+        fat: 5.5,
+        category: "protein",
+        tags: ["High Protein", "High Fiber", "Breakfast"],
+        image: "images/pesarattu.jpg",
+        description: "Nutritious green gram batter crisp crepes loaded with chopped ginger, onions, and green chilies."
+      },
+      {
+        id: "ragi-dosa",
+        name: "Calcium-Rich Ragi Dosa",
+        kannada: "ರಾಗಿ ದೋಸೆ / Finger Millet Dosa",
+        portion: "2 dosas",
+        grams: "170g",
+        calories: 260,
+        protein: 7.0,
+        carbs: 48.0,
+        fiber: 6.9,
+        fat: 4.8,
+        category: "millets",
+        tags: ["High Fiber", "Millet", "Calcium Rich"],
+        image: "images/ragi_dosa.jpg",
+        description: "Red finger millet crepes tempered with onions, cumin, and fresh cilantro. Great for bone health."
+      },
+      {
+        id: "poha",
+        name: "Avalakki / Kanda Poha",
+        kannada: "ಅವಲಕ್ಕಿ / Poha",
+        portion: "1 bowl",
+        grams: "180g",
+        calories: 250,
+        protein: 5.5,
+        carbs: 46.0,
+        fiber: 3.5,
+        fat: 6.0,
+        category: "breakfast",
+        tags: ["Quick & Light", "Breakfast"],
+        image: "images/poha.jpg",
+        description: "Flattened rice tempered with mustard, turmeric, sweet onions, crunchy peanuts, and lemon."
+      },
+      {
+        id: "mandakki",
+        name: "North Karnataka Mandakki / Uggani",
+        kannada: "ಮಂಡಕ್ಕಿ ಒಗ್ಗರಣೆ / ಉಗ್ಗಣಿ",
+        portion: "1 hearty plate",
+        grams: "200g",
+        calories: 280,
+        protein: 7.5,
+        carbs: 49.0,
+        fiber: 4.5,
+        fat: 7.2,
+        category: "breakfast",
+        tags: ["Quick & Light", "Breakfast"],
+        image: "images/mandakki.jpg",
+        description: "Puffed rice soaked and seasoned with fried gram (putani) powder, green chillies, and lemon juice."
+      },
+      {
+        id: "semiya-upma",
+        name: "Roasted Semiya Upma",
+        kannada: "ಶಾವಿಗೆ ಉಪ್ಮಾ / Vermicelli",
+        portion: "1 bowl",
+        grams: "200g",
+        calories: 270,
+        protein: 5.8,
+        carbs: 48.0,
+        fiber: 3.0,
+        fat: 6.5,
+        category: "breakfast",
+        tags: ["Quick & Light", "Breakfast"],
+        image: "images/semiya_upma.jpg",
+        description: "Delicate wheat vermicelli tossed with diced carrots, french beans, mustard, and curry leaves."
+      },
+      {
+        id: "protein-shake",
+        name: "Dry Fruit Protein Shake",
+        kannada: "ಪ್ರೋಟೀನ್ ಶೇಕ್ / Dry Fruit Shake",
+        portion: "1 glass / shaker",
+        grams: "300ml",
+        calories: 245,
+        protein: 26.0,
+        carbs: 22.0,
+        fiber: 3.0,
+        fat: 4.5,
+        category: "protein",
+        tags: ["High Protein", "Post-Workout", "Quick"],
+        image: "images/protein_shake.jpg",
+        description: "1 clean scoop protein blended with cold skimmed milk, soaked almonds, dates, and cardamom."
+      },
+      {
+        id: "chapati",
+        name: "Phulka / Chapati with Dal",
+        kannada: "ಚಪಾತಿ / Roti with Dal",
+        portion: "2 chapatis + 1 bowl dal",
+        grams: "230g",
+        calories: 340,
+        protein: 11.8,
+        carbs: 58.0,
+        fiber: 7.5,
+        fat: 6.5,
+        category: "protein",
+        tags: ["High Fiber", "Wholesome"],
+        image: "images/chapati.jpg",
+        description: "100% whole wheat stoneground rotis served with protein-rich garlic tadka toor dal."
+      },
+      {
+        id: "curd-rice",
+        name: "Cooling Thayir Sadam (Curd Rice)",
+        kannada: "ಮೊಸರನ್ನ / Curd Rice with Tadka",
+        portion: "1 bowl",
+        grams: "220g",
+        calories: 255,
+        protein: 7.2,
+        carbs: 42.0,
+        fiber: 1.8,
+        fat: 6.8,
+        category: "rice",
+        tags: ["Probiotic", "Gut Friendly", "Light"],
+        image: "images/curd_rice.jpg",
+        description: "Fresh homemade curd mixed with soft rice, pomegranate pearls, ginger, and asafoetida tadka."
+      }
+    ];
+
+    /* -------------------------------------------------------------
+       STATE MANAGEMENT
+    -------------------------------------------------------------- */
+    let DISHES = [...DEFAULT_DISHES];
+    let currentCategory = 'all';
+    let searchQuery = '';
+    let plateItems = []; // Array of { instanceId, dishId, mealTime, multiplier }
+
+    // User daily goals
+    let dailyGoals = {
+      calories: 1700,
+      protein: 55,
+      fiber: 28
+    };
+
+    /* -------------------------------------------------------------
+       INITIALIZATION
+    -------------------------------------------------------------- */
+    window.addEventListener('DOMContentLoaded', () => {
+      loadSavedState();
+      renderDishGrid();
+      updateMacroCalculations();
+      updateRangeLabels();
+      fetchSheetData();
+    });
+
+    function loadSavedState() {
+      try {
+        const savedGoals = sessionStorage.getItem('ak_goals') || localStorage.getItem('ak_goals');
+        if (savedGoals) dailyGoals = JSON.parse(savedGoals);
+        const savedPlate = sessionStorage.getItem('ak_plate') || localStorage.getItem('ak_plate');
+        if (savedPlate) plateItems = JSON.parse(savedPlate);
+      } catch (e) {
+        console.warn('Storage read fallback');
+      }
+      updateGoalDisplays();
+    }
+
+    function saveState() {
+      try {
+        localStorage.setItem('ak_plate', JSON.stringify(plateItems));
+        localStorage.setItem('ak_goals', JSON.stringify(dailyGoals));
+      } catch (e) {}
+    }
+
+    /* -------------------------------------------------------------
+       GOOGLE SHEET CSV FETCH & NORMALIZATION
+    -------------------------------------------------------------- */
+    async function fetchSheetData() {
+      const statusText = document.getElementById('sheet-status-text');
+      const statusDot = document.getElementById('sheet-status-dot');
+      const syncIcon = document.getElementById('sync-icon');
+
+      if (syncIcon) syncIcon.classList.add('animate-spin');
+      if (statusText) statusText.innerText = 'Connecting to Google Sheet...';
+
+      try {
+        // Append timestamp cache-buster so new sheet edits reflect instantly
+        const cacheBusterUrl = `${SHEET_CSV_URL}&t=${Date.now()}`;
+        const res = await fetch(cacheBusterUrl);
+        if (!res.ok) throw new Error(`HTTP error ${res.status}`);
+        const csvRaw = await res.text();
+
+        Papa.parse(csvRaw, {
+          header: true,
+          dynamicTyping: true,
+          skipEmptyLines: true,
+          complete: function(results) {
+            if (results.data && results.data.length > 0) {
+              const parsed = results.data
+                .filter(row => {
+                  const name = getVal(row, ['Name', 'name', 'dish', 'Dish', 'item', 'Item']);
+                  return name && String(name).trim() !== '';
+                })
+                .map((row, idx) => {
+                  const name = String(getVal(row, ['Name', 'name', 'dish', 'Dish', 'item', 'Item'])).trim();
+                  const kannada = String(getVal(row, ['Kannada', 'kannada', 'subname', 'Subname']) || `${name} Special`).trim();
+                  const portion = String(getVal(row, ['Portion', 'portion', 'quantity', 'Quantity']) || '1 serving').trim();
+                  const grams = String(getVal(row, ['Grams', 'grams', 'weight', 'Weight', 'gm']) || '200g').trim();
+                  
+                  const calories = parseFloat(getVal(row, ['Calories', 'calories', 'cal', 'kcal', 'energy'])) || 0;
+                  const protein = parseFloat(getVal(row, ['Protein', 'protein', 'prot'])) || 0;
+                  const carbs = parseFloat(getVal(row, ['Carbs', 'carbs', 'carbohydrates', 'carb'])) || 0;
+                  const fiber = parseFloat(getVal(row, ['Fiber', 'fiber', 'fibre'])) || 0;
+                  const fat = parseFloat(getVal(row, ['Fat', 'fat', 'fats'])) || 0;
+
+                  // Category determination
+                  let category = String(getVal(row, ['Category', 'category', 'type', 'Type']) || '').toLowerCase();
+                  if (!category || category === 'undefined') {
+                    if (protein >= 14) category = 'protein';
+                    else if (/millet|quinoa|ragi/i.test(name)) category = 'millets';
+                    else if (/rice|bath|pulav|pulao|sadham/i.test(name)) category = 'rice';
+                    else category = 'breakfast';
+                  }
+
+                  // Tags determination
+                  const rawTags = getVal(row, ['Tags', 'tags', 'tag']);
+                  let tags = [];
+                  if (rawTags && typeof rawTags === 'string') {
+                    tags = rawTags.split(',').map(s => s.trim()).filter(Boolean);
+                  } else {
+                    if (protein >= 12) tags.push('High Protein');
+                    if (fiber >= 5) tags.push('High Fiber');
+                    if (calories < 300) tags.push('Low Calorie');
+                    if (/millet|quinoa|ragi/i.test(name)) tags.push('Millet');
+                    if (/rice|bath|pulav/i.test(name)) tags.push('Rice Bowls');
+                    if (tags.length === 0) tags.push('Home Special');
+                  }
+
+                  // Description
+                  const description = String(getVal(row, ['Description', 'description', 'desc']) || `Authentic homemade South Indian preparation calibrated to ${grams}.`).trim();
+
+                  // Image Handling: supports local folder, Upstash/external URLs, or clean placeholder
+                  const rawImg = getVal(row, ['Image', 'image', 'img', 'ImageURL', 'imageurl', 'photo', 'Photo']);
+                  let image = '';
+                  if (rawImg && String(rawImg).trim() !== '') {
+                    image = String(rawImg).trim();
+                  } else {
+                    // Try to map to local folder based on sanitized dish name
+                    const cleanId = name.toLowerCase().replace(/[^a-z0-9]/g, '_');
+                    image = `images/${cleanId}.jpg`;
+                  }
+
+                  const safeId = String(getVal(row, ['ID', 'id', 'Id']) || `dish-${idx}-${name.toLowerCase().replace(/[^a-z0-9]/g, '-')}`);
+
+                  return {
+                    id: safeId,
+                    name,
+                    kannada,
+                    portion,
+                    grams,
+                    calories: Math.round(calories),
+                    protein: Math.round(protein * 10) / 10,
+                    carbs: Math.round(carbs * 10) / 10,
+                    fiber: Math.round(fiber * 10) / 10,
+                    fat: Math.round(fat * 10) / 10,
+                    category,
+                    tags,
+                    image,
+                    description
+                  };
+                });
+
+              if (parsed.length > 0) {
+                DISHES = parsed;
+                if (statusDot) {
+                  statusDot.className = 'w-2 h-2 rounded-full bg-emerald-500 animate-pulse';
+                }
+                if (statusText) {
+                  statusText.innerText = `Live Synced (${DISHES.length} items from Google Sheet)`;
+                }
+                showToast(`Synced ${DISHES.length} dishes from Google Sheet!`, 'ph-check-circle');
+              } else {
+                throw new Error('No valid rows found in sheet');
+              }
+            } else {
+              throw new Error('Empty CSV');
+            }
+            renderDishGrid();
+            updateMacroCalculations();
+          },
+          error: function(err) {
+            console.warn('PapaParse error:', err);
+            handleFallback('Error parsing Sheet — using saved menu');
+          }
+        });
+      } catch (err) {
+        console.warn('Sheet fetch error:', err);
+        handleFallback('Sheet offline — using saved menu');
+      } finally {
+        if (syncIcon) syncIcon.classList.remove('animate-spin');
+      }
+    }
+
+    // Case-insensitive key lookup helper for CSV headers
+    function getVal(obj, candidateKeys) {
+      if (!obj) return null;
+      for (const key of candidateKeys) {
+        if (obj[key] !== undefined && obj[key] !== null) return obj[key];
+      }
+      const lowerKeys = Object.keys(obj).reduce((acc, k) => {
+        acc[k.toLowerCase().trim()] = obj[k];
+        return acc;
+      }, {});
+      for (const key of candidateKeys) {
+        const lk = key.toLowerCase();
+        if (lowerKeys[lk] !== undefined && lowerKeys[lk] !== null) return lowerKeys[lk];
+      }
+      return null;
+    }
+
+    function handleFallback(msg) {
+      const statusText = document.getElementById('sheet-status-text');
+      const statusDot = document.getElementById('sheet-status-dot');
+      if (statusDot) statusDot.className = 'w-2 h-2 rounded-full bg-amber-500';
+      if (statusText) statusText.innerText = msg;
+      DISHES = DEFAULT_DISHES;
+      renderDishGrid();
+      updateMacroCalculations();
+    }
+
+    /* -------------------------------------------------------------
+       RENDER DISH CARDS
+    -------------------------------------------------------------- */
+    function renderDishGrid() {
+      const grid = document.getElementById('recipe-grid');
+      const noResults = document.getElementById('no-results');
+      const filtered = getFilteredDishes();
+
+      // Update counters
+      document.getElementById('results-count-text').innerText = `Showing ${filtered.length} delicious option${filtered.length === 1 ? '' : 's'}`;
+      document.getElementById('total-count-pill').innerText = DISHES.length;
+
+      if (filtered.length === 0) {
+        grid.innerHTML = '';
+        noResults.classList.remove('hidden');
+        return;
+      }
+      noResults.classList.add('hidden');
+
+      grid.innerHTML = filtered.map(dish => {
+        const inPlateCount = plateItems.filter(item => item.dishId === dish.id).length;
+        
+        return `
+          <div class="glass-card rounded-3xl overflow-hidden border border-spice-100 hover:border-spice-300 transition-all duration-300 hover:shadow-xl flex flex-col group relative">
+            
+            <!-- Dish Image + Badges -->
+            <div class="relative h-48 sm:h-52 w-full overflow-hidden bg-stone-100">
+              <img 
+                src="${dish.image}" 
+                alt="${dish.name}" 
+                loading="lazy"
+                onerror="this.onerror=null; this.src='https://images.unsplash.com/photo-1610192244261-3f33de3f55e4?w=600&auto=format&fit=crop&q=80';"
+                class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" 
+              />
+              <div class="absolute inset-0 bg-gradient-to-t from-black/70 via-black/20 to-transparent"></div>
+
+              <!-- Portion Badge -->
+              <span class="absolute top-3 left-3 bg-stone-900/80 backdrop-blur-md text-white text-[10px] font-bold px-2.5 py-1 rounded-full border border-white/20 flex items-center gap-1 shadow-sm">
+                <i class="ph-bold ph-scales text-amber-300"></i> ${dish.portion} (${dish.grams})
+              </span>
+
+              <!-- Plate Indicator Badge if already chosen -->
+              ${inPlateCount > 0 ? `
+                <span class="absolute top-3 right-3 bg-spice-600 text-white text-[11px] font-bold px-2.5 py-1 rounded-full shadow-lg flex items-center gap-1 animate-badge">
+                  <i class="ph-fill ph-check-circle"></i> On Plate (${inPlateCount})
+                </span>
+              ` : ''}
+
+              <!-- Bottom Title inside Image overlay for clear contrast -->
+              <div class="absolute bottom-2.5 left-3 right-3 text-white">
+                <p class="text-[10px] text-amber-300 font-semibold tracking-wide uppercase">${dish.kannada}</p>
+                <h3 class="font-serif font-bold text-lg leading-tight drop-shadow-sm">${dish.name}</h3>
+              </div>
+            </div>
+
+            <!-- Card Body & Macros -->
+            <div class="p-4 flex-1 flex flex-col justify-between space-y-3">
+              
+              <p class="text-xs text-stone-600 line-clamp-2 leading-relaxed">
+                ${dish.description}
+              </p>
+
+              <!-- Nutrition Grid -->
+              <div class="grid grid-cols-4 gap-1.5 p-2 bg-warmbg/80 rounded-2xl border border-stone-200/70 text-center">
+                <div>
+                  <span class="block text-[9px] uppercase tracking-wider text-stone-600 font-semibold">Calories</span>
+                  <span class="text-xs sm:text-sm font-extrabold text-stone-900">${dish.calories}</span>
+                  <span class="text-[9px] text-stone-500 font-medium block">kcal</span>
+                </div>
+                <div class="border-l border-stone-200">
+                  <span class="block text-[9px] uppercase tracking-wider text-emerald-800 font-semibold">Protein</span>
+                  <span class="text-xs sm:text-sm font-extrabold text-leaf">${dish.protein}g</span>
+                  <span class="text-[9px] text-emerald-700 font-medium block">high</span>
+                </div>
+                <div class="border-l border-stone-200">
+                  <span class="block text-[9px] uppercase tracking-wider text-stone-600 font-semibold">Carbs</span>
+                  <span class="text-xs sm:text-sm font-extrabold text-stone-800">${dish.carbs}g</span>
+                  <span class="text-[9px] text-stone-500 font-medium block">energy</span>
+                </div>
+                <div class="border-l border-stone-200">
+                  <span class="block text-[9px] uppercase tracking-wider text-amber-800 font-semibold">Fiber</span>
+                  <span class="text-xs sm:text-sm font-extrabold text-amber-800">${dish.fiber}g</span>
+                  <span class="text-[9px] text-amber-700 font-medium block">gut</span>
+                </div>
+              </div>
+
+              <!-- Tags list -->
+              <div class="flex flex-wrap gap-1">
+                ${dish.tags.map(t => `
+                  <span class="text-[10px] font-medium px-2 py-0.5 rounded-md bg-stone-100 text-stone-600">
+                    #${t}
+                  </span>
+                `).join('')}
+              </div>
+
+              <!-- Action Bar (Add to Plate + Meal Selector) -->
+              <div class="pt-1 flex items-center gap-2">
+                <select id="meal-slot-${dish.id}" class="text-xs bg-warmbg font-semibold text-stone-700 rounded-xl px-2 py-2 border border-stone-200 focus:outline-none focus:border-spice-500">
+                  <option value="Breakfast">Breakfast</option>
+                  <option value="Lunch">Lunch</option>
+                  <option value="Dinner">Dinner</option>
+                  <option value="Snack">Snack</option>
+                </select>
+
+                <button onclick="addToPlate('${dish.id}')" class="flex-1 bg-spice-500 hover:bg-spice-600 active:scale-95 text-white py-2 px-3 rounded-xl font-bold text-xs flex items-center justify-center gap-1.5 transition shadow-sm hover:shadow-glow">
+                  <i class="ph-bold ph-plus-circle text-base"></i>
+                  <span>Add to Plate</span>
+                </button>
+              </div>
+
+            </div>
+
+          </div>
+        `;
+      }).join('');
+    }
+
+    /* -------------------------------------------------------------
+       FILTERING & SORTING LOGIC
+    -------------------------------------------------------------- */
+    function getFilteredDishes() {
+      const maxCal = parseInt(document.getElementById('range-cal').value);
+      const minPro = parseInt(document.getElementById('range-pro').value);
+      const minFib = parseInt(document.getElementById('range-fib').value);
+
+      const reqHighProtein = document.getElementById('chk-high-protein').checked;
+      const reqHighFiber = document.getElementById('chk-high-fiber').checked;
+      const reqLowCal = document.getElementById('chk-low-cal').checked;
+      const reqMillet = document.getElementById('chk-millet').checked;
+
+      const sortBy = document.getElementById('sort-select').value;
+
+      return DISHES.filter(dish => {
+        // Search
+        if (searchQuery) {
+          const q = searchQuery.toLowerCase();
+          const matchName = dish.name.toLowerCase().includes(q);
+          const matchKannada = (dish.kannada || '').toLowerCase().includes(q);
+          const matchDesc = (dish.description || '').toLowerCase().includes(q);
+          if (!matchName && !matchKannada && !matchDesc) return false;
+        }
+
+        // Category Pill
+        if (currentCategory !== 'all') {
+          if (currentCategory === 'protein' && dish.protein < 14) return false;
+          else if (currentCategory === 'millets' && dish.category !== 'millets' && !/millet|quinoa|ragi/i.test(dish.name)) return false;
+          else if (currentCategory === 'rice' && dish.category !== 'rice' && !/rice|bath|pulav|pulao/i.test(dish.name)) return false;
+          else if (currentCategory === 'breakfast' && dish.category !== 'breakfast') return false;
+        }
+
+        // Sliders
+        if (dish.calories > maxCal) return false;
+        if (dish.protein < minPro) return false;
+        if (dish.fiber < minFib) return false;
+
+        // Quick Toggles
+        if (reqHighProtein && dish.protein < 12) return false;
+        if (reqHighFiber && dish.fiber < 5) return false;
+        if (reqLowCal && dish.calories >= 300) return false;
+        if (reqMillet && !dish.tags.some(t => /millet/i.test(t)) && !/millet|quinoa|ragi/i.test(dish.name)) return false;
+
+        return true;
+      }).sort((a, b) => {
+        if (sortBy === 'protein-desc') return b.protein - a.protein;
+        if (sortBy === 'cal-asc') return a.calories - b.calories;
+        if (sortBy === 'cal-desc') return b.calories - a.calories;
+        if (sortBy === 'fiber-desc') return b.fiber - a.fiber;
+        if (sortBy === 'name-asc') return a.name.localeCompare(b.name);
+        return 0; // recommended
+      });
+    }
+
+    function setCategory(cat) {
+      currentCategory = cat;
+      document.querySelectorAll('.category-pill').forEach(btn => {
+        if (btn.getAttribute('data-cat') === cat) {
+          btn.className = 'category-pill active-pill whitespace-nowrap px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all bg-spice-600 text-white shadow-sm';
+        } else {
+          btn.className = 'category-pill whitespace-nowrap px-3.5 py-1.5 rounded-xl text-xs font-semibold text-stone-600 hover:text-stone-900 bg-stone-100 hover:bg-stone-200/80 transition-all';
+        }
+      });
+      renderDishGrid();
+    }
+
+    function handleSearch(val) {
+      searchQuery = val.trim();
+      document.getElementById('desktop-search').value = val;
+      document.getElementById('mobile-search').value = val;
+      renderDishGrid();
+    }
+
+    function updateRangeLabels() {
+      const cal = document.getElementById('range-cal').value;
+      const pro = document.getElementById('range-pro').value;
+      const fib = document.getElementById('range-fib').value;
+
+      document.getElementById('lbl-max-cal').innerText = `${cal} kcal`;
+      document.getElementById('lbl-min-pro').innerText = `${pro} g`;
+      document.getElementById('lbl-min-fib').innerText = `${fib} g`;
+
+      // Sync mobile if present
+      const mCal = document.getElementById('m-range-cal');
+      const mPro = document.getElementById('m-range-pro');
+      if (mCal) mCal.value = cal;
+      if (mPro) mPro.value = pro;
+      const mlCal = document.getElementById('m-lbl-max-cal');
+      const mlPro = document.getElementById('m-lbl-min-pro');
+      if (mlCal) mlCal.innerText = `${cal} kcal`;
+      if (mlPro) mlPro.innerText = `${pro} g`;
+    }
+
+    function syncRangeMobile() {
+      const cal = document.getElementById('m-range-cal').value;
+      const pro = document.getElementById('m-range-pro').value;
+      document.getElementById('range-cal').value = cal;
+      document.getElementById('range-pro').value = pro;
+      updateRangeLabels();
+      applyFilters();
+    }
+
+    function applyFilters() {
+      renderDishGrid();
+    }
+
+    function resetFilters() {
+      document.getElementById('desktop-search').value = '';
+      document.getElementById('mobile-search').value = '';
+      searchQuery = '';
+
+      document.getElementById('range-cal').value = 650;
+      document.getElementById('range-pro').value = 0;
+      document.getElementById('range-fib').value = 0;
+
+      document.getElementById('chk-high-protein').checked = false;
+      document.getElementById('chk-high-fiber').checked = false;
+      document.getElementById('chk-low-cal').checked = false;
+      document.getElementById('chk-millet').checked = false;
+
+      // Mobile checkboxes
+      if (document.getElementById('m-chk-high-protein')) {
+        document.getElementById('m-chk-high-protein').checked = false;
+        document.getElementById('m-chk-high-fiber').checked = false;
+        document.getElementById('m-chk-low-cal').checked = false;
+        document.getElementById('m-chk-millet').checked = false;
+      }
+
+      document.getElementById('sort-select').value = 'recommended';
+      setCategory('all');
+      updateRangeLabels();
+      showToast('Filters reset to default', 'ph-arrows-counter-clockwise');
+    }
+
+    /* -------------------------------------------------------------
+       DAILY MEAL PLANNER & MACRO TRACKING
+    -------------------------------------------------------------- */
+    function addToPlate(dishId) {
+      const slotEl = document.getElementById(`meal-slot-${dishId}`);
+      const mealSlot = slotEl ? slotEl.value : 'Breakfast';
+
+      plateItems.push({
+        instanceId: Date.now() + Math.random(),
+        dishId: dishId,
+        mealTime: mealSlot,
+        multiplier: 1
+      });
+
+      saveState();
+      updateMacroCalculations();
+      renderDishGrid();
+
+      const dish = DISHES.find(d => d.id === dishId);
+      showToast(`Added ${dish ? dish.name : 'Dish'} (${mealSlot}) to your plate!`, 'ph-check-circle');
+
+      checkMilestones();
+    }
+
+    function removePlateItem(instanceId) {
+      plateItems = plateItems.filter(item => item.instanceId !== instanceId);
+      saveState();
+      updateMacroCalculations();
+      renderDishGrid();
+      showToast('Dish removed from plate', 'ph-trash');
+    }
+
+    function updateMultiplier(instanceId, factor) {
+      const item = plateItems.find(i => i.instanceId === instanceId);
+      if (item) {
+        item.multiplier = parseFloat(factor);
+        saveState();
+        updateMacroCalculations();
+      }
+    }
+
+    function clearPlate() {
+      if (plateItems.length === 0) return;
+      plateItems = [];
+      saveState();
+      updateMacroCalculations();
+      renderDishGrid();
+      showToast('Today’s plate cleared', 'ph-trash');
+    }
+
+    function updateMacroCalculations() {
+      let totalCal = 0;
+      let totalPro = 0;
+      let totalCarb = 0;
+      let totalFib = 0;
+      let totalFat = 0;
+
+      plateItems.forEach(item => {
+        const dish = DISHES.find(d => d.id === item.dishId);
+        if (dish) {
+          totalCal += dish.calories * item.multiplier;
+          totalPro += dish.protein * item.multiplier;
+          totalCarb += dish.carbs * item.multiplier;
+          totalFib += dish.fiber * item.multiplier;
+          totalFat += dish.fat * item.multiplier;
+        }
+      });
+
+      totalCal = Math.round(totalCal);
+      totalPro = Math.round(totalPro * 10) / 10;
+      totalCarb = Math.round(totalCarb * 10) / 10;
+      totalFib = Math.round(totalFib * 10) / 10;
+      totalFat = Math.round(totalFat * 10) / 10;
+
+      // Update Nav & Hero
+      document.getElementById('nav-plate-count').innerText = plateItems.length;
+      document.getElementById('floating-dish-count').innerText = `${plateItems.length} item${plateItems.length === 1 ? '' : 's'}`;
+      document.getElementById('hero-cal-display').innerText = totalCal;
+      document.getElementById('hero-pro-display').innerText = `${totalPro}g`;
+      document.getElementById('hero-fib-display').innerText = `${totalFib}g`;
+
+      // Update Floating Bottom Bar
+      document.getElementById('floating-cals').innerText = totalCal;
+      document.getElementById('floating-pro').innerText = `${totalPro}g`;
+
+      // Update Drawer
+      document.getElementById('drawer-total-cal').innerText = totalCal;
+      document.getElementById('drawer-total-pro').innerText = `${totalPro}g`;
+      document.getElementById('drawer-total-carb').innerText = `${totalCarb}g`;
+      document.getElementById('drawer-total-fib').innerText = `${totalFib}g`;
+      document.getElementById('drawer-total-fat').innerText = `${totalFat}g`;
+
+      // Calculate Percentages
+      const calPct = Math.min(100, Math.round((totalCal / dailyGoals.calories) * 100));
+      const proPct = Math.min(100, Math.round((totalPro / dailyGoals.protein) * 100));
+
+      document.getElementById('cal-percent-lbl').innerText = `${calPct}% (${totalCal}/${dailyGoals.calories} kcal)`;
+      document.getElementById('cal-progress-bar').style.width = `${calPct}%`;
+
+      document.getElementById('pro-percent-lbl').innerText = `${proPct}% (${totalPro}/${dailyGoals.protein}g)`;
+      document.getElementById('pro-progress-bar').style.width = `${proPct}%`;
+
+      renderDrawerItems();
+    }
+
+    function renderDrawerItems() {
+      const container = document.getElementById('drawer-items-list');
+      const emptyState = document.getElementById('drawer-empty-state');
+
+      if (plateItems.length === 0) {
+        container.innerHTML = '';
+        emptyState.classList.remove('hidden');
+        return;
+      }
+      emptyState.classList.add('hidden');
+
+      const order = { 'Breakfast': 1, 'Lunch': 2, 'Snack': 3, 'Dinner': 4 };
+      const sorted = [...plateItems].sort((a, b) => (order[a.mealTime] || 5) - (order[b.mealTime] || 5));
+
+      container.innerHTML = sorted.map(item => {
+        const dish = DISHES.find(d => d.id === item.dishId);
+        if (!dish) return '';
+
+        const cal = Math.round(dish.calories * item.multiplier);
+        const pro = Math.round(dish.protein * item.multiplier * 10) / 10;
+        const fib = Math.round(dish.fiber * item.multiplier * 10) / 10;
+
+        return `
+          <div class="bg-white p-3 rounded-2xl border border-stone-200 shadow-sm flex items-center justify-between gap-3">
+            <div class="flex items-center gap-3">
+              <img src="${dish.image}" onerror="this.onerror=null; this.src='https://images.unsplash.com/photo-1610192244261-3f33de3f55e4?w=600&auto=format&fit=crop&q=80';" class="w-12 h-12 rounded-xl object-cover" alt="${dish.name}" />
+              <div>
+                <div class="flex items-center gap-1.5">
+                  <span class="text-[10px] font-bold uppercase tracking-wider text-spice-700 bg-spice-100 px-1.5 py-0.5 rounded">
+                    ${item.mealTime}
+                  </span>
+                  <h4 class="font-bold text-xs text-stone-900 leading-snug">${dish.name}</h4>
+                </div>
+                <div class="text-[11px] text-stone-500 mt-0.5">
+                  <span class="font-bold text-stone-800">${cal} kcal</span> · 
+                  <span class="font-bold text-emerald-700">${pro}g Pro</span> · 
+                  <span class="font-bold text-amber-700">${fib}g Fib</span>
+                </div>
+              </div>
+            </div>
+
+            <!-- Portion Selector & Remove -->
+            <div class="flex items-center gap-2">
+              <select onchange="updateMultiplier(${item.instanceId}, this.value)" class="text-xs bg-warmbg font-bold text-stone-700 border border-stone-200 rounded-lg p-1 focus:outline-none">
+                <option value="0.5" ${item.multiplier === 0.5 ? 'selected' : ''}>0.5x</option>
+                <option value="1" ${item.multiplier === 1 ? 'selected' : ''}>1x</option>
+                <option value="1.5" ${item.multiplier === 1.5 ? 'selected' : ''}>1.5x</option>
+                <option value="2" ${item.multiplier === 2 ? 'selected' : ''}>2x</option>
+              </select>
+
+              <button onclick="removePlateItem(${item.instanceId})" class="text-stone-400 hover:text-rose-600 p-1 rounded-lg transition" title="Remove">
+                <i class="ph-bold ph-trash text-sm"></i>
+              </button>
+            </div>
+          </div>
+        `;
+      }).join('');
+    }
+
+    function checkMilestones() {
+      let totalPro = 0;
+      plateItems.forEach(i => {
+        const d = DISHES.find(x => x.id === i.dishId);
+        if (d) totalPro += d.protein * i.multiplier;
+      });
+
+      if (totalPro >= dailyGoals.protein && totalPro - 5 < dailyGoals.protein) {
+        if (typeof confetti === 'function') {
+          confetti({
+            particleCount: 75,
+            spread: 60,
+            origin: { y: 0.85 }
+          });
+        }
+      }
+    }
+
+    /* -------------------------------------------------------------
+       DRAWER & MODAL INTERACTIONS
+    -------------------------------------------------------------- */
+    function togglePlannerDrawer() {
+      const drawer = document.getElementById('planner-drawer');
+      const backdrop = document.getElementById('drawer-backdrop');
+
+      const isClosed = drawer.classList.contains('translate-x-full');
+      if (isClosed) {
+        drawer.classList.remove('translate-x-full');
+        backdrop.classList.remove('opacity-0', 'pointer-events-none');
+      } else {
+        drawer.classList.add('translate-x-full');
+        backdrop.classList.add('opacity-0', 'pointer-events-none');
+      }
+    }
+
+    function openMobileFilters() {
+      document.getElementById('mobile-filter-modal').classList.remove('hidden');
+      document.getElementById('mobile-filter-modal').classList.add('flex');
+    }
+
+    function closeMobileFilters() {
+      document.getElementById('mobile-filter-modal').classList.add('hidden');
+      document.getElementById('mobile-filter-modal').classList.remove('flex');
+    }
+
+    function syncAndApplyMobileFilters() {
+      document.getElementById('chk-high-protein').checked = document.getElementById('m-chk-high-protein').checked;
+      document.getElementById('chk-high-fiber').checked = document.getElementById('m-chk-high-fiber').checked;
+      document.getElementById('chk-low-cal').checked = document.getElementById('m-chk-low-cal').checked;
+      document.getElementById('chk-millet').checked = document.getElementById('m-chk-millet').checked;
+      applyFilters();
+    }
+
+    function openTargetModal() {
+      document.getElementById('inp-target-cal').value = dailyGoals.calories;
+      document.getElementById('inp-target-pro').value = dailyGoals.protein;
+      document.getElementById('inp-target-fib').value = dailyGoals.fiber;
+      document.getElementById('target-modal').classList.remove('hidden');
+      document.getElementById('target-modal').classList.add('flex');
+    }
+
+    function closeTargetModal() {
+      document.getElementById('target-modal').classList.add('hidden');
+      document.getElementById('target-modal').classList.remove('flex');
+    }
+
+    function saveDailyTargets() {
+      const c = parseInt(document.getElementById('inp-target-cal').value) || 1700;
+      const p = parseInt(document.getElementById('inp-target-pro').value) || 55;
+      const f = parseInt(document.getElementById('inp-target-fib').value) || 28;
+
+      dailyGoals = { calories: c, protein: p, fiber: f };
+      saveState();
+      updateGoalDisplays();
+      updateMacroCalculations();
+      closeTargetModal();
+      showToast('Daily nutrition goals updated!', 'ph-check-circle');
+    }
+
+    function updateGoalDisplays() {
+      document.querySelectorAll('.target-cal-lbl').forEach(el => el.innerText = dailyGoals.calories);
+      document.querySelectorAll('.target-pro-lbl').forEach(el => el.innerText = dailyGoals.protein);
+      document.querySelectorAll('.target-fib-lbl').forEach(el => el.innerText = dailyGoals.fiber);
+    }
+
+    /* -------------------------------------------------------------
+       SHARE MENU / CLIPBOARD (WHATSAPP SUMMARY)
+    -------------------------------------------------------------- */
+    function copyDayMenu() {
+      if (plateItems.length === 0) {
+        showToast('Add some meals to your plate first!', 'ph-warning');
+        return;
+      }
+
+      let text = `🍲 *Aishwarya's Kitchen - Meal Plan for Today*\n`;
+      text += `━━━━━━━━━━━━━━━━━━━━━\n`;
+
+      let totalCal = 0;
+      let totalPro = 0;
+      let totalFib = 0;
+
+      plateItems.forEach((item, idx) => {
+        const dish = DISHES.find(d => d.id === item.dishId);
+        if (dish) {
+          const c = Math.round(dish.calories * item.multiplier);
+          const p = Math.round(dish.protein * item.multiplier * 10) / 10;
+          const fib = Math.round(dish.fiber * item.multiplier * 10) / 10;
+          totalCal += c;
+          totalPro += p;
+          totalFib += fib;
+
+          text += `${idx + 1}. *${item.mealTime}*: ${dish.name} (${item.multiplier}x portion)\n`;
+          text += `   ↳ ${c} kcal | ${p}g Protein | ${fib}g Fiber\n`;
+        }
+      });
+
+      text += `━━━━━━━━━━━━━━━━━━━━━\n`;
+      text += `📊 *Total Macros Planned:*\n`;
+      text += `🔥 Calories: ${totalCal} / ${dailyGoals.calories} kcal\n`;
+      text += `💪 Protein: ${totalPro.toFixed(1)} / ${dailyGoals.protein}g\n`;
+      text += `🌾 Fiber: ${totalFib.toFixed(1)} / ${dailyGoals.fiber}g\n\n`;
+      text += `Healthy & prepared with love at home! ❤️`;
+
+      const tempTextArea = document.createElement('textarea');
+      tempTextArea.value = text;
+      document.body.appendChild(tempTextArea);
+      tempTextArea.select();
+      try {
+        document.execCommand('copy');
+        showToast('Daily menu copied for WhatsApp sharing!', 'ph-check-circle');
+      } catch (err) {
+        showToast('Failed to copy. Please try again.', 'ph-warning');
+      }
+      document.body.removeChild(tempTextArea);
+    }
+
+    /* -------------------------------------------------------------
+       TOAST UTILITY
+    -------------------------------------------------------------- */
+    let toastTimer = null;
+    function showToast(msg, iconClass = 'ph-check-circle') {
+      const toast = document.getElementById('toast');
+      const toastMsg = document.getElementById('toast-msg');
+      const toastIcon = document.getElementById('toast-icon');
+
+      toastMsg.innerText = msg;
+      toastIcon.className = `ph-fill ${iconClass} text-base ${iconClass.includes('check') ? 'text-emerald-400' : 'text-amber-400'}`;
+
+      toast.classList.remove('opacity-0', '-translate-y-12', 'pointer-events-none');
+      toast.classList.add('opacity-100', 'translate-y-0');
+
+      if (toastTimer) clearTimeout(toastTimer);
+      toastTimer = setTimeout(() => {
+        toast.classList.remove('opacity-100', 'translate-y-0');
+        toast.classList.add('opacity-0', '-translate-y-12', 'pointer-events-none');
+      }, 2600);
+    }
+  </script>
+</body>
+</html>
