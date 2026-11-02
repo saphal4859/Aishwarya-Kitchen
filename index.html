@@ -1115,138 +1115,114 @@
 
       if (syncIcon) syncIcon.classList.add('animate-spin');
       if (statusText) statusText.innerText = 'Connecting to Google Sheet...';
+      if (statusDot) statusDot.className = 'w-2 h-2 rounded-full bg-amber-500 animate-pulse';
 
       try {
-        // Append timestamp cache-buster so new sheet edits reflect instantly
-        const cacheBusterUrl = `${SHEET_CSV_URL}&t=${Date.now()}`;
-        const res = await fetch(cacheBusterUrl);
-        if (!res.ok) throw new Error(`HTTP error ${res.status}`);
+        // Cache-buster ensures published Sheet edits are not served from browser cache.
+        const cacheBusterUrl = `${SHEET_CSV_URL}${SHEET_CSV_URL.includes('?') ? '&' : '?'}t=${Date.now()}`;
+        const res = await fetch(cacheBusterUrl, { cache: 'no-store' });
+        if (!res.ok) throw new Error(`Google Sheet returned HTTP ${res.status}`);
         const csvRaw = await res.text();
+        if (!csvRaw || !csvRaw.trim()) throw new Error('Google Sheet returned an empty CSV');
 
         Papa.parse(csvRaw, {
           header: true,
-          dynamicTyping: true,
+          dynamicTyping: false,
           skipEmptyLines: true,
+          transformHeader: header => String(header || '').replace(/^\uFEFF/, '').trim().toLowerCase(),
           complete: function(results) {
-            if (results.data && results.data.length > 0) {
-              const parsed = results.data
-                .filter(row => {
-                  const name = getVal(row, ['Name', 'name', 'dish', 'Dish', 'item', 'Item']);
-                  return name && String(name).trim() !== '';
-                })
-                .map((row, idx) => {
-                  const name = String(getVal(row, ['Name', 'name', 'dish', 'Dish', 'item', 'Item'])).trim();
-                  const kannada = String(getVal(row, ['Kannada', 'kannada', 'subname', 'Subname']) || `${name} Special`).trim();
-                  const portion = String(getVal(row, ['Portion', 'portion', 'quantity', 'Quantity']) || '1 serving').trim();
-                  const grams = String(getVal(row, ['Grams', 'grams', 'weight', 'Weight', 'gm']) || '200g').trim();
-                  
-                  const calories = parseFloat(getVal(row, ['Calories', 'calories', 'cal', 'kcal', 'energy'])) || 0;
-                  const protein = parseFloat(getVal(row, ['Protein', 'protein', 'prot'])) || 0;
-                  const carbs = parseFloat(getVal(row, ['Carbs', 'carbs', 'carbohydrates', 'carb'])) || 0;
-                  const fiber = parseFloat(getVal(row, ['Fiber', 'fiber', 'fibre'])) || 0;
-                  const fat = parseFloat(getVal(row, ['Fat', 'fat', 'fats'])) || 0;
-
-                  // Category determination
-                  let category = String(getVal(row, ['Category', 'category', 'type', 'Type']) || '').toLowerCase();
-                  if (!category || category === 'undefined') {
-                    if (protein >= 14) category = 'protein';
-                    else if (/millet|quinoa|ragi/i.test(name)) category = 'millets';
-                    else if (/rice|bath|pulav|pulao|sadham/i.test(name)) category = 'rice';
-                    else category = 'breakfast';
-                  }
-
-                  // Tags determination
-                  const rawTags = getVal(row, ['Tags', 'tags', 'tag']);
-                  let tags = [];
-                  if (rawTags && typeof rawTags === 'string') {
-                    tags = rawTags.split(',').map(s => s.trim()).filter(Boolean);
-                  } else {
-                    if (protein >= 12) tags.push('High Protein');
-                    if (fiber >= 5) tags.push('High Fiber');
-                    if (calories < 300) tags.push('Low Calorie');
-                    if (/millet|quinoa|ragi/i.test(name)) tags.push('Millet');
-                    if (/rice|bath|pulav/i.test(name)) tags.push('Rice Bowls');
-                    if (tags.length === 0) tags.push('Home Special');
-                  }
-
-                  // Description
-                  const description = String(getVal(row, ['Description', 'description', 'desc']) || `Authentic homemade South Indian preparation calibrated to ${grams}.`).trim();
-
-                  // Image Handling: supports local folder, Upstash/external URLs, or clean placeholder
-                  const rawImg = getVal(row, ['Image', 'image', 'img', 'ImageURL', 'imageurl', 'photo', 'Photo']);
-                  let image = '';
-                  if (rawImg && String(rawImg).trim() !== '') {
-                    image = String(rawImg).trim();
-                  } else {
-                    // Try to map to local folder based on sanitized dish name
-                    const cleanId = name.toLowerCase().replace(/[^a-z0-9]/g, '_');
-                    image = `images/${cleanId}.jpg`;
-                  }
-
-                  const safeId = String(getVal(row, ['ID', 'id', 'Id']) || `dish-${idx}-${name.toLowerCase().replace(/[^a-z0-9]/g, '-')}`);
-
-                  return {
-                    id: safeId,
-                    name,
-                    kannada,
-                    portion,
-                    grams,
-                    calories: Math.round(calories),
-                    protein: Math.round(protein * 10) / 10,
-                    carbs: Math.round(carbs * 10) / 10,
-                    fiber: Math.round(fiber * 10) / 10,
-                    fat: Math.round(fat * 10) / 10,
-                    category,
-                    tags,
-                    image,
-                    description
-                  };
-                });
-
-              if (parsed.length > 0) {
-                DISHES = parsed;
-                if (statusDot) {
-                  statusDot.className = 'w-2 h-2 rounded-full bg-emerald-500 animate-pulse';
-                }
-                if (statusText) {
-                  statusText.innerText = `Live Synced (${DISHES.length} items from Google Sheet)`;
-                }
-                showToast(`Synced ${DISHES.length} dishes from Google Sheet!`, 'ph-check-circle');
-              } else {
-                throw new Error('No valid rows found in sheet');
+            try {
+              if (results.errors && results.errors.length) {
+                console.warn('CSV parsing warnings:', results.errors);
               }
-            } else {
-              throw new Error('Empty CSV');
+
+              const rows = (results.data || []).filter(row => row && String(row.id || '').trim() && String(row.name || '').trim());
+              if (!rows.length) throw new Error('No rows with both id and name were found. Check the sheet headers and published CSV.');
+
+              const requiredHeaders = ['id', 'name', 'category', 'portion', 'quantity_g', 'calories', 'protein_g', 'carbs_g', 'fiber_g', 'fat_g'];
+              const headers = (results.meta && results.meta.fields ? results.meta.fields : []).map(h => String(h).trim().toLowerCase());
+              const missingHeaders = requiredHeaders.filter(h => !headers.includes(h));
+              if (missingHeaders.length) {
+                throw new Error(`Missing required Google Sheet columns: ${missingHeaders.join(', ')}`);
+              }
+
+              const numberFrom = (value, field, rowId) => {
+                const cleaned = String(value ?? '').replace(/,/g, '').trim();
+                if (cleaned === '') throw new Error(`Blank ${field} value for row "${rowId}"`);
+                const n = Number(cleaned);
+                if (!Number.isFinite(n)) throw new Error(`Invalid ${field} value "${value}" for row "${rowId}"`);
+                return n;
+              };
+
+              const parsed = rows.map((row, idx) => {
+                const id = String(row.id).trim();
+                const name = String(row.name).trim();
+                const quantity = numberFrom(row.quantity_g, 'quantity_g', id);
+                const calories = numberFrom(row.calories, 'calories', id);
+                const protein = numberFrom(row.protein_g, 'protein_g', id);
+                const carbs = numberFrom(row.carbs_g, 'carbs_g', id);
+                const fiber = numberFrom(row.fiber_g, 'fiber_g', id);
+                const fat = numberFrom(row.fat_g, 'fat_g', id);
+                const rawCategory = String(row.category || '').trim().toLowerCase();
+                const category = rawCategory || 'breakfast';
+                const rawTags = String(row.tags || '').trim();
+                const tags = rawTags ? rawTags.split(',').map(tag => tag.trim()).filter(Boolean) : [];
+                const image = String(row.image || '').trim();
+                const description = String(row.description || '').trim();
+
+                return {
+                  id,
+                  name,
+                  // Keep legacy UI property names while reading the Sheet's exact headers.
+                  kannada: `${name} Special`,
+                  portion: String(row.portion || '1 serving').trim(),
+                  grams: `${quantity}g`,
+                  quantity_g: quantity,
+                  calories: Math.round(calories),
+                  protein: Math.round(protein * 10) / 10,
+                  carbs: Math.round(carbs * 10) / 10,
+                  fiber: Math.round(fiber * 10) / 10,
+                  fat: Math.round(fat * 10) / 10,
+                  category,
+                  tags,
+                  image: image || `images/${id}.jpg`,
+                  description: description || `Homemade ${name} serving (${quantity}g).`
+                };
+              });
+
+              DISHES = parsed;
+              if (statusDot) statusDot.className = 'w-2 h-2 rounded-full bg-emerald-500';
+              if (statusText) statusText.innerText = `Live Synced (${DISHES.length} items from Google Sheet)`;
+              showToast(`Synced ${DISHES.length} dishes from Google Sheet!`, 'ph-check-circle');
+              renderDishGrid();
+              updateMacroCalculations();
+            } catch (parseErr) {
+              console.error('Google Sheet data validation failed:', parseErr);
+              handleFallback(`Sheet data issue — showing saved menu (${parseErr.message})`);
             }
-            renderDishGrid();
-            updateMacroCalculations();
           },
           error: function(err) {
-            console.warn('PapaParse error:', err);
-            handleFallback('Error parsing Sheet — using saved menu');
+            console.error('PapaParse error:', err);
+            handleFallback(`Could not parse Google Sheet — showing saved menu`);
           }
         });
       } catch (err) {
-        console.warn('Sheet fetch error:', err);
-        handleFallback('Sheet offline — using saved menu');
+        console.error('Google Sheet fetch error:', err);
+        handleFallback(`Sheet unavailable — showing saved menu (${err.message})`);
       } finally {
         if (syncIcon) syncIcon.classList.remove('animate-spin');
       }
     }
 
-    // Case-insensitive key lookup helper for CSV headers
+    // CSV headers are normalized to lowercase by PapaParse, matching the exact
+    // Google Sheet columns: id, name, category, portion, quantity_g, calories,
+    // protein_g, carbs_g, fiber_g, fat_g, image, tags, description.
     function getVal(obj, candidateKeys) {
       if (!obj) return null;
       for (const key of candidateKeys) {
-        if (obj[key] !== undefined && obj[key] !== null) return obj[key];
-      }
-      const lowerKeys = Object.keys(obj).reduce((acc, k) => {
-        acc[k.toLowerCase().trim()] = obj[k];
-        return acc;
-      }, {});
-      for (const key of candidateKeys) {
-        const lk = key.toLowerCase();
-        if (lowerKeys[lk] !== undefined && lowerKeys[lk] !== null) return lowerKeys[lk];
+        const wanted = String(key).toLowerCase().trim();
+        const actual = Object.keys(obj).find(k => String(k).toLowerCase().trim() === wanted);
+        if (actual !== undefined && obj[actual] !== undefined && obj[actual] !== null) return obj[actual];
       }
       return null;
     }
@@ -1256,6 +1232,7 @@
       const statusDot = document.getElementById('sheet-status-dot');
       if (statusDot) statusDot.className = 'w-2 h-2 rounded-full bg-amber-500';
       if (statusText) statusText.innerText = msg;
+      // Keep the app usable offline, but visibly indicate that Sheet values did not load.
       DISHES = DEFAULT_DISHES;
       renderDishGrid();
       updateMacroCalculations();
